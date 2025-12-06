@@ -106,11 +106,32 @@
         // This is the key difference: We call OUR OWN backend, not Google directly.
         async function callBackendAPI(prompt, base64Image = null) {
             try {
-                const response = await fetch('/api/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, image: base64Image })
-                });
+                // --- START OF NEW CODE ---
+
+// 1. Get the question from the dropdown or input box
+// (This ensures userQuestion is defined just in case)
+const userQuestion = document.querySelector("#questionSelect") ? document.querySelector("#questionSelect").value : "General Analysis";
+
+// 2. Grab the stock name from the popup title (e.g., "AI Analyst: ABEO")
+let stockSymbol = "Stock"; 
+const titleElement = document.querySelector("h2"); // Finds the bold title
+if (titleElement && titleElement.innerText.includes(":")) {
+    stockSymbol = titleElement.innerText.split(":")[1].trim();
+}
+
+// 3. Run the fetch using the stock symbol we just found
+const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        prompt: `Analyze the stock ${stockSymbol}. Question: ${userQuestion}` 
+    })
+});
+
+// --- END OF NEW CODE ---
+
                 
                 if (!response.ok) throw new Error('Backend API Error');
                 const data = await response.json();
