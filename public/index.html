@@ -17,7 +17,6 @@
         .user-message { background-color: #dbeafe; margin-left: auto; text-align: right; }
         .ai-message { background-color: #f3f4f6; margin-right: auto; text-align: left; }
         .drop-zone { border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 2rem; text-align: center; color: #6b7280; cursor: pointer; }
-        .drop-zone.drag-over { background-color: #e0f2fe; border-color: #3b82f6; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -37,7 +36,6 @@
             <div class="lg:col-span-2">
                  <label for="screenshotUpload" id="screenshotLabel" class="drop-zone flex flex-col items-center justify-center h-full">
                     <span class="font-semibold">Drag & Drop Screenshot Here</span>
-                    <span class="text-sm">(.png, .jpg files)</span>
                 </label>
                 <input type="file" id="screenshotUpload" class="hidden" accept="image/*">
                 <input type="file" id="bulkUploadInput" class="hidden" accept=".txt,.json">
@@ -61,10 +59,9 @@
         </div>
     </div>
 
-    <!-- Loading Modal -->
+    <!-- Modals -->
     <div id="loadingModal" class="modal-overlay hidden"><div class="modal-content text-center"><div class="loader mx-auto"></div><p class="mt-4 text-gray-700 font-semibold">AI is analyzing...</p></div></div>
 
-    <!-- Analyst Modal -->
     <div id="analystModal" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 600px;">
             <div class="flex justify-between items-center mb-4">
@@ -84,7 +81,6 @@
         </div>
     </div>
     
-    <!-- Bulk Upload Modal (Simplified for brevity) -->
     <div id="bulkUploadModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 class="text-xl font-bold mb-4">Confirm Upload</h2>
@@ -96,54 +92,53 @@
         </div>
     </div>
 
+    <!-- Add Stock Modal -->
+    <div id="addModal" class="modal-overlay hidden">
+         <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4">Add New Stock</h2>
+            <form id="addForm">
+                <div class="mb-4"><label class="block text-sm">Symbol</label><input type="text" id="addSymbol" class="w-full p-2 border rounded"></div>
+                <div class="mb-4"><label class="block text-sm">Name</label><input type="text" id="addName" class="w-full p-2 border rounded"></div>
+                <div class="mb-4"><label class="block text-sm">Price</label><input type="number" step="0.01" id="addPrice" class="w-full p-2 border rounded"></div>
+                <div class="flex justify-end gap-3"><button type="button" class="cancel-btn bg-gray-200 py-2 px-4 rounded">Cancel</button><button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded">Add</button></div>
+            </form>
+        </div>
+    </div>
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        let stocks = [];
+        let stocks = [{symbol:'AAPL', name:'Apple Inc', price: 150.00}, {symbol:'GOOGL', name:'Alphabet', price: 2800.00}];
         let parsedBulkStocks = [];
         let analyzingStock = null;
         
-        // --- API Helper ---
-        // This is the key difference: We call OUR OWN backend, not Google directly.
+        // --- 1. THE BACKEND CONNECTION ---
         async function callBackendAPI(prompt, base64Image = null) {
+            // Check if we are in a static preview environment (blob: or file:)
+            // In these environments, the relative path '/api/generate' cannot be resolved.
+            if (window.location.protocol === 'file:' || window.location.protocol === 'blob:') {
+                alert("⚠️ PREVIEW MODE DETECTED ⚠️\n\nThe AI features require the Vercel backend to function.\nThey will NOT work in this preview window.\n\nPlease deploy to Vercel and use your deployed App URL.");
+                return null;
+            }
+
             try {
-                // --- START OF NEW CODE ---
-
-// 1. Get the question from the dropdown or input box
-// (This ensures userQuestion is defined just in case)
-const userQuestion = document.querySelector("#questionSelect") ? document.querySelector("#questionSelect").value : "General Analysis";
-
-// 2. Grab the stock name from the popup title (e.g., "AI Analyst: ABEO")
-let stockSymbol = "Stock"; 
-const titleElement = document.querySelector("h2"); // Finds the bold title
-if (titleElement && titleElement.innerText.includes(":")) {
-    stockSymbol = titleElement.innerText.split(":")[1].trim();
-}
-
-// 3. Run the fetch using the stock symbol we just found
-const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        prompt: `Analyze the stock ${stockSymbol}. Question: ${userQuestion}` 
-    })
-});
-
-// --- END OF NEW CODE ---
-
+                // This points to YOUR Vercel backend file
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, image: base64Image })
+                });
                 
                 if (!response.ok) throw new Error('Backend API Error');
                 const data = await response.json();
                 return data.text;
             } catch (error) {
                 console.error(error);
-                alert("Error connecting to server. Make sure Vercel is running and API Key is set.");
+                alert("Error connecting to server. Make sure you are using the Vercel deployed URL and API Key is set.");
                 return null;
             }
         }
 
-        // --- Core Logic ---
+        // --- 2. TABLE LOGIC ---
         function renderTable() {
             const tbody = document.getElementById('stockTableBody');
             tbody.innerHTML = '';
@@ -168,6 +163,7 @@ const response = await fetch('/api/generate', {
             document.getElementById('analystModal').classList.remove('hidden');
         };
 
+        // --- 3. ANALYST LOGIC ---
         document.getElementById('analystForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const question = document.getElementById('analystQuestionSelect').selectedOptions[0].text;
@@ -191,7 +187,7 @@ const response = await fetch('/api/generate', {
             }
         });
 
-        // --- Image Handling ---
+        // --- 4. IMAGE LOGIC ---
         document.getElementById('screenshotUpload').addEventListener('change', (e) => handleImage(e.target.files[0]));
         document.getElementById('screenshotLabel').addEventListener('drop', (e) => {
             e.preventDefault();
@@ -211,6 +207,8 @@ const response = await fetch('/api/generate', {
                 const jsonStr = await callBackendAPI(prompt, base64);
                 document.getElementById('loadingModal').classList.add('hidden');
                 
+                if (!jsonStr) return; // Error handled in callBackendAPI
+
                 try {
                     const cleanJson = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
                     parsedBulkStocks = JSON.parse(cleanJson);
@@ -226,12 +224,23 @@ const response = await fetch('/api/generate', {
         }
 
         document.getElementById('confirmBulkUploadBtn').addEventListener('click', () => {
-            stocks = [...parsedBulkStocks, ...stocks]; // Add new stocks
+            stocks = [...parsedBulkStocks, ...stocks];
             renderTable();
             document.getElementById('bulkUploadModal').classList.add('hidden');
         });
 
-        // Close buttons
+        // --- 5. UI HELPERS ---
+        document.getElementById('addStockBtn').addEventListener('click', () => document.getElementById('addModal').classList.remove('hidden'));
+        document.getElementById('addForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const s = document.getElementById('addSymbol').value.toUpperCase();
+            const n = document.getElementById('addName').value;
+            const p = parseFloat(document.getElementById('addPrice').value);
+            stocks.unshift({symbol: s, name: n, price: p});
+            renderTable();
+            document.getElementById('addModal').classList.add('hidden');
+        });
+
         document.querySelectorAll('.cancel-btn, .modal-overlay').forEach(el => {
             el.addEventListener('click', (e) => {
                 if(e.target === el || e.target.classList.contains('cancel-btn')) 
@@ -239,11 +248,8 @@ const response = await fetch('/api/generate', {
             });
         });
 
-        // Init dummy data
-        stocks = [{symbol:'AAPL', name:'Apple Inc', price: 150.00}, {symbol:'GOOGL', name:'Alphabet', price: 2800.00}];
         renderTable();
     });
     </script>
 </body>
 </html>
-
