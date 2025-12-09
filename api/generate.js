@@ -1,45 +1,68 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
 module.exports = async (request, response) => {
-  // 1. Allow the frontend to talk to this backend (CORS)
-  response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    // 1. CORS Setup
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
-  if (request.method === 'OPTIONS') {
-    return response.status(200).end();
-  }
-
-  // 2. Check for API Key
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error("API Key is missing in Vercel Environment Variables");
-    return response.status(500).json({ error: 'Server API Key not configured' });
-  }
-
-  try {
-    const { prompt, image } = request.body;
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    let result;
-    if (image) {
-        const imagePart = {
-            inlineData: {
-                data: image,
-                mimeType: "image/png"
-            }
-        };
-        result = await model.generateContent([prompt, imagePart]);
-    } else {
-        result = await model.generateContent(prompt);
+    if (request.method === 'OPTIONS') {
+        return response.status(200).end();
     }
 
-    const text = result.response.text();
-    return response.status(200).json({ text });
+    // 2. Get the Hidden Key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        return response.status(500).json({ error: 'Server API Key not configured' });
+    }
 
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return response.status(500).json({ error: error.message });
-  }
+    try {
+        const { prompt, image } = request.body;
+        
+        // 3. THE URL YOU RECOGNIZE (We force 'v1beta' here to fix your error)
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        // Prepare the body for Google
+        const requestBody = {
+            contents: [{
+                parts: [
+                    { text: prompt }
+                ]
+            }]
+        };
+
+        // If there is an image, add it to the parts
+        if (image) {
+            requestBody.contents[0].parts.push({
+                inlineData: {
+                    mimeType: "image/png",
+                    data: image
+                }
+            });
+        }
+
+        // 4. Call Google directly (No library needed)
+        const googleResponse = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await googleResponse.json();
+
+        // Check if Google sent an error
+        if (!googleResponse.ok) {
+            console.error("Google API Error:", JSON.stringify(data));
+            return response.status(googleResponse.status).json({ 
+                error: data.error?.message || "Error from Google API" 
+            });
+        }
+
+        // Extract the text
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        return response.status(200).json({ text });
+
+    } catch (error) {
+        console.error("Server Error:", error);
+        return response.status(500).json({ error: error.message });
+    }
 };
