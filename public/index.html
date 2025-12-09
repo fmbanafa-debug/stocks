@@ -113,8 +113,7 @@
         
         // --- 1. THE BACKEND CONNECTION ---
         async function callBackendAPI(prompt, base64Image = null) {
-            // Check if we are in a static preview environment (blob: or file:)
-            // In these environments, the relative path '/api/generate' cannot be resolved.
+            // Check if we are in a static preview environment
             if (window.location.protocol === 'file:' || window.location.protocol === 'blob:') {
                 alert("⚠️ PREVIEW MODE DETECTED ⚠️\n\nThe AI features require the Vercel backend to function.\nThey will NOT work in this preview window.\n\nPlease deploy to Vercel and use your deployed App URL.");
                 return null;
@@ -207,7 +206,7 @@
                 const jsonStr = await callBackendAPI(prompt, base64);
                 document.getElementById('loadingModal').classList.add('hidden');
                 
-                if (!jsonStr) return; // Error handled in callBackendAPI
+                if (!jsonStr) return; 
 
                 try {
                     const cleanJson = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
