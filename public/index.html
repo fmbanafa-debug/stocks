@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Stock Watchlist</title>
+    <title>AI Stock Watchlist (Debug)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -23,6 +23,7 @@
     <div class="max-w-7xl mx-auto">
         <header class="text-center mb-6">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">AI Stock Watchlist</h1>
+            <p class="text-sm text-red-500 font-bold">DEBUG MODE ACTIVE</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -111,7 +112,7 @@
         let parsedBulkStocks = [];
         let analyzingStock = null;
         
-        // --- 1. THE BACKEND CONNECTION ---
+        // --- 1. THE BACKEND CONNECTION (DEBUG MODE) ---
         async function callBackendAPI(prompt, base64Image = null) {
             // Check if we are in a static preview environment
             if (window.location.protocol === 'file:' || window.location.protocol === 'blob:') {
@@ -127,12 +128,20 @@
                     body: JSON.stringify({ prompt, image: base64Image })
                 });
                 
-                if (!response.ok) throw new Error('Backend API Error');
+                // DEBUG: Detailed Error Reporting
+                if (!response.ok) {
+                    const status = response.status; // 404, 500, etc.
+                    const text = await response.text(); // Error details from server
+                    
+                    alert(`⚠️ DEBUG ERROR: ${status} ⚠️\n\nReason: ${text || 'Unknown'}\n\nRead the 'What to do' section in the chat based on this number.`);
+                    return null;
+                }
+
                 const data = await response.json();
                 return data.text;
             } catch (error) {
                 console.error(error);
-                alert("Error connecting to server. Make sure you are using the Vercel deployed URL and API Key is set.");
+                alert(`⚠️ NETWORK ERROR ⚠️\n\n${error.message}\n\nCheck if your internet is working or if the Vercel URL is correct.`);
                 return null;
             }
         }
