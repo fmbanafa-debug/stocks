@@ -17,8 +17,9 @@ module.exports = async (request, response) => {
     try {
         const { prompt, image } = request.body;
         
-        // 3. THE URL YOU RECOGNIZE (We force 'v1beta' here to fix your error)
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // 3. THE URL - We use 'gemini-1.5-flash-latest' and trim the key to fix the 404 error
+        // The .trim() fixes issues if you accidentally copied a space in Vercel
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`;
 
         // Prepare the body for Google
         const requestBody = {
