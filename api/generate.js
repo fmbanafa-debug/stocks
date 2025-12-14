@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         // Use the stable model
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-001" });
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
         const { prompt } = req.body;
         
